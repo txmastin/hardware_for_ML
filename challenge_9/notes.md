@@ -1,0 +1,5 @@
+After extensive testing of the liquid state machine, but for this class/project as well as for other research projects, in addition to extensive reading of the literature in the field, I believe the best hardware to software co-design divisions for ease of training, memory management, and hardware acceleration are to split the basic operation of the liquid state machine as follows:
+
+**Software:** input encoding / injection into the reservoir -> **Hardware:** emulate the spiking reservoir dynamics directly in hardware -> **Software:** read the reservoir state and train the readout layer in software again.
+
+This pipeline enables the primary computational bottleneck (the matrix operations) of the reservoir to be emulated in a highly parallel / simultaneous way in hardware, preferably with analog LIFs, while the main readout layer and training can be done in software with gradient descent or my own optimizer. This avoids the difficult hardware training issue that most fully hardware neuromorphic designs suffer from, namely implementing surrogate gradient descent or fully offloading training to a typical CPU/GPU workflow.
