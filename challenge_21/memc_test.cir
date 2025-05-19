@@ -1,0 +1,40 @@
+* Memcapacitor Model for NGSPICE - Simplified Version
+* Simple voltage-controlled memcapacitor model compatible with NGSPICE
+
+.subckt memcapacitor plus minus params:
++ Cmin=1p      ; Minimum capacitance value (F)
++ Cmax=100p    ; Maximum capacitance value (F)
++ beta=1e-2    ; Rate of change for state variable
++ x0=0.5       ; Initial value of state variable (between 0 and 1)
+
+* Internal node for state variable
+.nodeset v(xvar)={x0}
+Cx xvar 0 1
+
+* Simpler window function implementation
+.func w_up(x) = {1-(x-0.98)*(x>0.98)}
+.func w_dn(x) = {1-(0.02-x)*(x<0.02)}
+.func win(x,v) = {(v>0)*w_up(x) + (v<=0)*w_dn(x)}
+
+* State variable evolution - controlled by voltage
+Bx 0 xvar I={beta*V(plus,minus)*win(V(xvar),V(plus,minus))}
+
+* Memcapacitor current implementation
+Ec cap 0 value={Cmin+(Cmax-Cmin)*V(xvar)}
+Gmem plus minus value={V(cap)*ddt(V(plus,minus)) + (Cmax-Cmin)*V(plus,minus)*I(Cx)}
+
+.ends memcapacitor
+
+* Test circuit
+vsrc in 0 SIN(0 2 100)   ; 2V amplitude, 100Hz sine wave
+xmem in 0 memcapacitor params: Cmin=1p Cmax=100p beta=1e-2 x0=0.5
+
+* Analysis commands
+.control
+tran 0.1m 50m uic  ; Use initial conditions
+plot v(in)         ; Input voltage
+plot i(vsrc)*1e9   ; Current (nA)
+plot v(xmem.xvar)  ; State variable
+.endc
+
+.end

@@ -1,0 +1,80 @@
+*------------------------------------------------------------
+* FLIF Neuron - Exact Analog Model Based on Source Papers
+*------------------------------------------------------------
+
+* PARAMETERS
+.param Vdd = 5
+.param Vthresh = -1.5
+
+* POWER SUPPLY
+Vdd_node Vdd 0 DC {Vdd}
+
+* INPUT CURRENT (Synaptic)
+Iin in 0 PULSE(0 10u 1ms 1ms 1ms 5ms 20ms)
+Rin in vmem 1Meg
+
+* LEAK PATH
+Rleak vmem 0 10Meg
+
+* MEMCAPACITOR (Biolek model)
+Xmem vmem 0 memC PARAMS: Cmin=10n Cmax=10u Cinit=100n k=10meg p=2 IC=0
+
+*============================================================
+* SPIKE GENERATION & RESET CIRCUIT (from Vazquez-Guerrero 2024)
+*------------------------------------------------------------
+* Comparator: T3 (PMOS), T4 (NMOS)
+* Current Mirror: T5 (NMOS), T6 (PMOS)
+* Reset Path: T1, T2 (PMOS pull-down pair)
+
+* THRESHOLD BIASING
+Vbias1 gate_T3 Vdd DC 1.5     ; PMOS threshold trigger
+Vbias2 gate_T4 0 DC {-1.5}   ; NMOS comparator gate
+
+* Comparator: T3 (PMOS), active when Vmem < Vthresh
+M3 Vdd vmem spike_out Vdd PMOS L=1u W=10u
+M4 0 gate_T4 spike_out 0 NMOS L=1u W=10u
+
+* Current mirror: T5 mirrors spike signal
+M5 spike_out gate_T4 spike_tail 0 NMOS L=1u W=10u
+M6 Vdd gate_T3 spike_tail Vdd PMOS L=1u W=10u
+
+* Reset transistors: T1 and T2 (PMOS pull-down)
+Vresetbias gate_T1 0 DC 1.4
+M1 vmem gate_T1 0 Vdd PMOS L=1u W=10u
+M2 vmem gate_T1 0 Vdd PMOS L=1u W=10u
+
+*------------------------------------------------------------
+* OUTPUT SPIKE TRACE POINT
+* You can probe V(spike_tail) as the output
+*------------------------------------------------------------
+
+* CONTROL
+.tran 1ms 10000ms
+
+.control
+run
+plot V(vmem) V(spike_tail)
+.endc
+
+*============================================================
+* Biolek et al. 2010 Memcapacitor Subcircuit
+*============================================================
+.SUBCKT memC Plus Minus PARAMS: Cmin=10n Cmax=10u Cinit=100n k=10meg p=2 IC=0
+Emc Plus Minus VALUE = { DM(V(x)) * (V(charge) + IC * Cinit) }
+Gq 0 charge VALUE = { I(Emc) }
+Cq charge 0 1
+Rq charge 0 1G
+.param xinit = { (1/Cinit - 1/Cmax) / (1/Cmin - 1/Cmax) }
+Gx 0 x VALUE = { V(charge) * k * window(V(x), p) }
+Cx x 0 1 IC = { xinit }
+Rx x 0 1G
+.func DM(x) = { 1/Cmax + (1/Cmin - 1/Cmax) * x }
+.func window(x, p) = { 1 - (2 * x - 1)**(2 * p) }
+.ENDS memC
+
+*============================================================
+* MOSFET Model Definitions (Generic for test purposes)
+*============================================================
+.model NMOS NMOS (LEVEL=1 VTO=1.0 KP=50u)
+.model PMOS PMOS (LEVEL=1 VTO=-1.0 KP=25u)
+

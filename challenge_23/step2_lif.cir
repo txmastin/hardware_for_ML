@@ -1,0 +1,37 @@
+* step2_lif_fixed.cir — single‐pole LIF with correct current injection
+
+.options METHOD=GEAR RELTOL=1e-4 ITL4=200
+
+* Parameters
+.param Cmem   = 1e-9       ; 1 nF membrane capacitance
+.param Rleak  = 500e3      ; 500 kΩ leak resistance
+.param Iin    = 2e-6       ; 2 µA constant input current
+.param Vth    = 0.5        ; threshold voltage (V)
+.param Ireset = 50e-6      ; reset‐pulse amplitude (A)
+.param dt     = 1e-7       ; time‐step (s)
+.param Tstop  = 5e-3       ; total sim time (s)
+
+* 1) Inject current *into* node “in”
+Iin     0    in    DC {Iin}
+Rleak   in   0     {Rleak}
+Cmem    in   0     {Cmem}
+
+* 2) Comparator & reset logic
+Bcomp   ctrl 0     V={ V(in) > Vth ? 1 : 0 }
+Rg      ctrl 0     1e12
+
+* Put a 0 V V‐source in series so we can measure reset‐current
+Vrs     rn   in    DC 0
+Bres    rn   0     I={ -Ireset * (V(ctrl)>0.5 ? 1 : 0) }
+
+* 3) Initial conditions & transient
+.ic V(in)=0 V(ctrl)=0 V(rn)=0
+.tran {dt} {Tstop} 0 {dt} uic
+
+.control
+  run
+  plot V(in) V(ctrl) I(Vrs)*1e6
+.endc
+
+.end
+

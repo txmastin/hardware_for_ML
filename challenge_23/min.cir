@@ -1,0 +1,7 @@
+* Simplest Test
+V1 1 0 DC 1
+R1 1 0 1k
+.tran 1u 10u
+.print TRAN V(1)
+set noaskquit
+.end

@@ -1,0 +1,66 @@
+*------------------------------
+* Fixed FLIF with clamped reset
+*------------------------------
+
+.param Vth      = -0.7      ; negative threshold
+.param Iin_amp  = 2u        ; 2 µA input
+.param Rin_val  = 1Meg
+.param Rleak    = 500k
+.param dt       = 0.01ms
+.param Tstop    = 200ms
+
+* 1) Input current now drives vmem positive
+Iin   0   in   DC {Iin_amp}
+Rin   in  vmem {Rin_val}
+
+* Leak
+Rleak vmem 0   {Rleak}
+
+* Your memcapacitor
+Xmem  vmem 0   memcapacitor Cmin=1p Cmax=10n beta=0.2 x0=0.1 p=10
+
+* 2) Comparator fires when V(vmem) < Vth (negative domain)
+Bfire fire 0 V = 'V(vmem) < {Vth} ? 1 : 0'
+
+* 3) Reset switch clamps vmem to 0 for the duration of "fire"
+.model sw SW(Ron=1 Roff=1e9 Vt=0.5 Vh=0)
+Sreset vmem 0 fire 0 sw
+
+* 4) Spike output = 10 V whenever "fire" is true
+Bspike spike_out 0 V = 'V(fire) * 10'
+
+.option numdgt=12 reltol=1e-3 abstol=1e-9
+.tran {dt} {Tstop} uic
+
+.control
+  run
+  plot V(vmem) V(spike_out)
+.endc
+
+
+*------------------------------------------------------------
+* Biolek et al. 2010 Memcapacitor Subcircuit (original, no DDT)
+*------------------------------------------------------------
+.SUBCKT memcapacitor Plus Minus PARAMS: \
++ Cmin=10n Cmax=10u Cinit=100n k=10meg p=1 IC=0
+
+* Controlled voltage source: v = DM(x) * (q + IC*Cinit)
+Emc Plus Minus VALUE = { DM(V(x)) * ( V(charge) + IC * Cinit ) }
+
+* Charge integrator (Int1)
+Gq 0 charge VALUE = { I(Emc) }
+Cq charge 0 1
+Rq charge 0 1G
+
+* State integrator (Int2)
+.PARAM xinit = { (1/Cinit - 1/Cmax) / (1/Cmin - 1/Cmax) }
+Gx 0 x VALUE = { V(charge) * k * window(V(x), p) }
+Cx x 0 1 IC = { xinit }
+Rx x 0 1G
+
+* Inverse‐capacitance and window functions
+.FUNC DM(x)     = { 1/Cmax + (1/Cmin - 1/Cmax) * x }
+.FUNC window(x,p) = { 1 - pow(2*x - 1, 2*p) }
+
+.ENDS memcapacitor
+

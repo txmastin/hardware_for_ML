@@ -1,0 +1,48 @@
+*------------------------------------------------------------
+* Biolek et al. (2010) Memcapacitor Test — Exact Reproduction
+*------------------------------------------------------------
+
+* Sinusoidal voltage source
+Vdrive vin 0 SIN(0 2 1)  ; 2 V amplitude, 1 Hz frequency
+Rdrive vin node_a 1      ; 1-ohm series resistor
+
+* Memcapacitor (original subcircuit)
+Xmem node_a 0 memC PARAMS: Cmin=10n Cmax=10u Cinit=100n k=10meg p=1 IC=0
+
+* Transient simulation
+.tran 1ms 5s
+
+.control
+run
+
+* Measure charge and voltage across device
+let v_mem = V(node_a)
+let i_mem = -I(Vdrive)
+plot i_mem vs v_mem retraceplot
+.endc
+
+*------------------------------------------------------------
+* Original Memcapacitor Subcircuit (Biolek 2010, exact)
+*------------------------------------------------------------
+.SUBCKT memC Plus Minus PARAMS: Cmin=10n Cmax=10u Cinit=100n k=10meg p=1 IC=0
+
+* Input port
+Emc Plus Minus VALUE = {DM(V(x)) * (V(charge) + IC * Cinit)}
+
+* Charge computation (Int1)
+Gq 0 charge VALUE = {I(Emc)}
+Cq charge 0 1
+Rq charge 0 1G
+
+* State-space equation (Int2)
+.param xinit = {(1/Cinit - 1/Cmax)/(1/Cmin - 1/Cmax)}
+Gx 0 x VALUE = {V(charge) * k * window(V(x), p)}
+Cx x 0 1 IC={xinit}
+Rx x 0 1G
+
+* Capacitance functions
+.func DM(x) = {1/Cmax + (1/Cmin - 1/Cmax)*x}
+.func window(x, p) = {1 - (2*x - 1)**(2*p)}
+
+.ENDS memC
+

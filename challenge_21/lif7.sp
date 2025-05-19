@@ -24,6 +24,8 @@ Vth vth_node 0 DC {Vthresh}
 * Smooth analog spike output (safe for plotting)
 Bspike spike_out 0 V = '1 / (1 + exp(-(V(vmem) - V(vth_node)) / 0.01))'
 
+Cstabilize reset_gate 0 1p
+
 * Soft binary reset control — fast sigmoid instead of hard step
 Breset reset_gate 0 V = 'tanh((V(vmem) - V(vth_node)) / 0.01) > 0 ? 1 : 0'
 

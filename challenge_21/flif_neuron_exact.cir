@@ -1,0 +1,58 @@
+*-------------------------------------------------------------
+* Fractional Leaky Integrate-and-Fire (FLIF) Neuron
+* Memcapacitor-based (Biolek 2010 + Vazquez-Guerrero 2024)
+*-------------------------------------------------------------
+
+* Parameters
+.param Rleak = 10Meg
+.param Vthresh = 1.5
+
+* Input current (simulates synaptic input)
+Iin in 0 PULSE(0 10u 1ms 1ms 1ms 5ms 20ms)
+Rin in vmem 1Meg
+
+* Leak resistor
+Rleak vmem 0 {Rleak}
+
+* Memcapacitor replaces classical membrane capacitor (C1)
+Xmem vmem 0 memC PARAMS: Cmin=10n Cmax=10u Cinit=100n k=10meg p=2 IC=0
+
+* Threshold reference
+Vth vthresh 0 DC {Vthresh}
+
+* Spike output (analog Gaussian pulse)
+Bspike spike_out 0 V = '10 * exp(-((V(vmem) - V(vthresh))**2) / 0.001)'
+
+* Transient simulation
+.tran 0.01ms 30ms
+
+.control
+run
+plot V(vmem) V(spike_out)
+.endc
+
+*-------------------------------------------------------------
+* Biolek et al. 2010 Memcapacitor Subcircuit (exact copy)
+*-------------------------------------------------------------
+.SUBCKT memC Plus Minus PARAMS: Cmin=10n Cmax=10u Cinit=100n k=10meg p=2 IC=0
+
+* Controlled voltage source: V = D_M(x) * q
+Emc Plus Minus VALUE = { DM(V(x)) * (V(charge) + IC * Cinit) }
+
+* Integrator for charge
+Gq 0 charge VALUE = { I(Emc) }
+Cq charge 0 1
+Rq charge 0 1G
+
+* Integrator for internal state variable x
+.param xinit = { (1/Cinit - 1/Cmax) / (1/Cmin - 1/Cmax) }
+Gx 0 x VALUE = { V(charge) * k * window(V(x), p) }
+Cx x 0 1 IC = { xinit }
+Rx x 0 1G
+
+* Capacitance control function
+.func DM(x) = { 1/Cmax + (1/Cmin - 1/Cmax) * x }
+.func window(x, p) = { 1 - (2*x - 1)**(2*p) }
+
+.ENDS memC
+

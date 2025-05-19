@@ -1,0 +1,73 @@
+* flif_rc_ladder_working.cir — Fractional-order LIF via RC ladder in NGSpice
+
+.options METHOD=GEAR RELTOL=1e-4 VNTOL=1e-6 ABSTOL=1e-12 ITL4=200
+
+*── Parameters ──────────────────────────────────────────────────────────
+.param stages    = 5
+.param alpha     = 0.8
+.param C0        = 1e-9
+.param flow      = 0.1
+.param freqh     = 1e4
+.param Iin_amp   = 2e-6
+.param Rleak     = 500e3
+.param Vth       = 0.5
+.param Ireset    = 50e-6
+.param dt        = 1e-6
+.param Tstop     = 0.01
+.param pi        = 3.141592653589793
+
+* log‐spacing for RC ladder
+.param ratio  = (freqh/flow)^(1/(stages-1))
+.param Rbase  = 1/(2*pi*flow*C0*(ratio^((1-alpha)/2)))
+.param Cbase  = C0*(ratio^((alpha-1)/2))
+
+* per‐stage R’s & C’s
+.param Rs0 = Rbase*(ratio^(0*(1-alpha)))
+.param Rs1 = Rbase*(ratio^(1*(1-alpha)))
+.param Rs2 = Rbase*(ratio^(2*(1-alpha)))
+.param Rs3 = Rbase*(ratio^(3*(1-alpha)))
+.param Rs4 = Rbase*(ratio^(4*(1-alpha)))
+
+.param Cs0 = Cbase*(ratio^0)
+.param Cs1 = Cbase*(ratio^1)
+.param Cs2 = Cbase*(ratio^2)
+.param Cs3 = Cbase*(ratio^3)
+.param Cs4 = Cbase*(ratio^4)
+
+*── Circuit ─────────────────────────────────────────────────────────────
+* 1) Input current & leak
+Iin     0       membrane   DC {Iin_amp}
+Rleak   membrane 0         {Rleak}
+
+* 2) 5‐stage RC ladder
+Rlad0   node0   membrane   {Rs0}
+Clad0   node0   0          {Cs0}
+Rlad1   node1   node0      {Rs1}
+Clad1   node1   0          {Cs1}
+Rlad2   node2   node1      {Rs2}
+Clad2   node2   0          {Cs2}
+Rlad3   node3   node2      {Rs3}
+Clad3   node3   0          {Cs3}
+Rlad4   ladder  node3      {Rs4}
+Clad4   ladder  0          {Cs4}
+
+* 3) Threshold & comparator
+Vth_ref vth_ref 0         DC {Vth}
+Bcomp    ctrl    0         V={ V(membrane)>V(vth_ref) ? 1 : 0 }
+Rg       ctrl    0         1e12
+
+* 4) Reset‐pulse current: insert zero‐volt source in series
+Vreset_sense reset_node membrane DC 0
+Breset         reset_node 0       I={ -Ireset * (V(ctrl)>0.5 ? 1 : 0) }
+
+* 5) Initial conditions & transient
+.ic V(membrane)=0 V(node0)=0 V(node1)=0 V(node2)=0 V(node3)=0 V(ladder)=0 V(ctrl)=0 V(reset_node)=0
+.tran {dt/10} {Tstop} uic
+
+.control
+  run
+  plot V(membrane) V(ctrl) I(Vreset_sense)*1e6
+.endc
+
+.end
+

@@ -1,0 +1,63 @@
+* Memcapacitor Model for NGSPICE - Enhanced for Visible Hysteresis
+* Based on the Biolek memcapacitor model for clearer pinched hysteresis
+
+.subckt memcapacitor plus minus params:
++ Cmin=1p        ; Minimum capacitance value (F)
++ Cmax=10n       ; Maximum capacitance value (F) - greatly increased for dramatic effect
++ beta=0.2       ; Rate of change for state variable - increased for faster evolution
++ x0=0.1         ; Initial value of state variable (low to show evolution)
++ p=10           ; Window function parameter for nonlinearity
+
+* Internal node for state variable
+.nodeset v(xvar)={x0}
+Cx xvar 0 1
+
+* Enhanced window function based on Biolek window
+.func biolek_win(x,i) = {1-pow(2*x-1,2*p) * ((i>0) * (x>0.98) + (i<=0) * (x<0.02))}
+
+* State variable evolution with enhanced nonlinearity
+Bx 0 xvar I={beta*V(plus,minus)*V(plus,minus)*biolek_win(V(xvar),V(plus,minus))}
+
+* Modified memcapacitor behavior for more visible hysteresis
+* Uses a quadratic relation between state and capacitance for sharper contrast
+Ec cap 0 value={Cmin+((Cmax-Cmin)*pow(V(xvar),2))}
+Gmem plus minus value={V(cap)*ddt(V(plus,minus)) + (2*(Cmax-Cmin)*V(xvar))*V(plus,minus)*I(Cx)}
+
+.ends memcapacitor
+
+* Test circuit with longer simulation time to see evolution
+vsrc in 0 SIN(0 2 50)   ; 2V amplitude, 50Hz sine wave (slower for more evolution)
+xmem in 0 memcapacitor params: Cmin=1p Cmax=10n beta=0.2 x0=0.1 p=10
+
+* Analysis commands
+.control
+tran 0.1m 100m uic  ; Longer simulation to see multiple cycles
+let cap_state = v(xmem.xvar)   ; Save state variable
+let current = i(vsrc)          ; Save current
+let voltage = v(in)            ; Save voltage
+
+* Plot the state variable evolution
+plot cap_state title "State Variable Evolution"
+
+* Plot the I-V curve to see pinched hysteresis
+set curplottitle="I-V Hysteresis Curve of Memcapacitor"
+plot current*1e9 vs voltage ylimit -200 200 title "I-V Curve (nA vs V)"
+
+* Plot for first and last cycles to see evolution
+let firstcycle = vector(201)
+let lastcycle = vector(201)
+let xaxis = vector(201)
+* Extract data for plotting
+let t_cycle = 1/50  ; Period of one cycle
+let idx
+let t_start = 80e-3  ; Time to start capturing last cycle
+let samples = 200
+let step = t_cycle/samples
+* Fill vectors (simplified approach)
+echo "Generating comparison plot data..."
+meas tran max_i max current
+meas tran min_i min current
+plot current*1e9 vs voltage title "Memcapacitor I-V Curve" xlabel "Voltage (V)" ylabel "Current (nA)"
+.endc
+
+.end

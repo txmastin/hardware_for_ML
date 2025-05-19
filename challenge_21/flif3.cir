@@ -1,0 +1,117 @@
+* Fractional-Order Leaky Integrate-and-Fire Neuron with Memcapacitor
+* Combines memcapacitive elements with LIF neuron dynamics
+
+***********************************************
+* PART 1: MEMCAPACITOR MODEL
+***********************************************
+.subckt memcapacitor plus minus params:
++ Cmin=1p        ; Minimum capacitance value (F)
++ Cmax=10n       ; Maximum capacitance value (F)
++ beta=0.2       ; Rate of change for state variable
++ x0=0.1         ; Initial value of state variable
++ p=10           ; Window function parameter
+
+* Internal state variable
+.nodeset v(xvar)={x0}
+Cx xvar 0 1
+
+* Enhanced window function based on Biolek window
+.func biolek_win(x,i) = {1-pow(2*x-1,2*p) * ((i>0) * (x>0.98) + (i<=0) * (x<0.02))}
+
+* State variable evolution with enhanced nonlinearity
+Bx 0 xvar I={beta*V(plus,minus)*V(plus,minus)*biolek_win(V(xvar),V(plus,minus))}
+
+* Memcapacitor behavior
+Ec cap 0 value={Cmin+((Cmax-Cmin)*pow(V(xvar),2))}
+Gmem plus minus value={V(cap)*ddt(V(plus,minus)) + (2*(Cmax-Cmin)*V(xvar))*V(plus,minus)*I(Cx)}
+.ends memcapacitor
+
+***********************************************
+* PART 2: FRACTIONAL-ORDER CIRCUIT ELEMENT
+***********************************************
+* Fractional-order capacitor approximation using RC ladder network
+* This creates a constant phase element (CPE) with fractional behavior
+.subckt fractionalC plus minus params:
++ C0=1n          ; Base capacitance value
++ alpha=0.8      ; Fractional order (0<alpha<1)
++ stages=5       ; Number of RC stages for approximation
+
+* Parameters for RC ladder approximation
+.param freq_l=0.1
+.param freq_h=10k
+.param ratio={pow(freq_h/freq_l, 1/(stages-1))}
+
+* RC ladder implementation for fractional behavior
+R1 plus 1 {1/(2*pi*freq_l*C0*pow(ratio, (1-alpha)/2))}
+C1 1 minus {C0*pow(ratio, (alpha-1)/2)}
+
+R2 1 2 {1/(2*pi*freq_l*C0*pow(ratio, (1-alpha)/2)) * pow(ratio, (1-alpha))}
+C2 2 minus {C0*pow(ratio, (alpha-1)/2) * pow(ratio, alpha)}
+
+R3 2 3 {1/(2*pi*freq_l*C0*pow(ratio, (1-alpha)/2)) * pow(ratio, 2*(1-alpha))}
+C3 3 minus {C0*pow(ratio, (alpha-1)/2) * pow(ratio, 2*alpha)}
+
+R4 3 4 {1/(2*pi*freq_l*C0*pow(ratio, (1-alpha)/2)) * pow(ratio, 3*(1-alpha))}
+C4 4 minus {C0*pow(ratio, (alpha-1)/2) * pow(ratio, 3*alpha)}
+
+R5 4 5 {1/(2*pi*freq_l*C0*pow(ratio, (1-alpha)/2)) * pow(ratio, 4*(1-alpha))}
+C5 5 minus {C0*pow(ratio, (alpha-1)/2) * pow(ratio, 4*alpha)}
+.ends fractionalC
+
+***********************************************
+* PART 3: LEAKY INTEGRATE-AND-FIRE NEURON
+***********************************************
+.subckt fo_lif_neuron in out params:
++ vth=30m        ; Threshold voltage
++ vrest=-65m     ; Resting membrane potential
++ tau=10m        ; Membrane time constant
++ refract=5m     ; Refractory period
++ alpha=0.8      ; Fractional order
++ Cmem_min=1p    ; Min memcapacitance
++ Cmem_max=10n   ; Max memcapacitance
+
+* Internal nodes
+.nodeset v(membrane)={vrest}
+.nodeset v(spike)=0
+.nodeset v(refr)=0
+
+* Input stage with scaling
+Rin in inp 10k
+Ein inp_scaled 0 inp 0 1.0
+
+* Membrane circuit with parallel memcapacitor and fractional capacitor
+Xmemcap membrane 0 memcapacitor params: Cmin={Cmem_min} Cmax={Cmem_max} beta=0.2 x0=0.5 p=10
+Xfcap membrane 0 fractionalC params: C0=1n alpha={alpha} stages=5
+Rmem membrane 0 {tau/1n}  ; Membrane resistance for leakage
+
+* Input current injection
+Gmem 0 membrane value={V(inp_scaled)}
+
+* Reset mechanism using behavioral sources
+Bspike spike 0 V=if(V(membrane) > vth, 1, if(time-idt(V(spike),1) < refract, 1, 0))
+Breset membrane 0 I=if(V(spike) > 0.5 & V(membrane) > vrest, 5*tan(V(membrane)-vrest), 0)
+
+* Output stage
+Eout out 0 spike 0 1.0
+.ends fo_lif_neuron
+
+***********************************************
+* PART 4: TEST CIRCUIT
+***********************************************
+* Input stimulus - using pulse train and sine combination for rich dynamics
+Vpulse pulse_in 0 PULSE(0 1 10m 1m 1m 10m 50m)
+Vsine sine_in 0 SIN(0 0.5 10)
+Rin_sum in 0 10k
+Bin 0 in I=V(pulse_in) + V(sine_in)
+
+* Neuron circuit
+Xneuron in out fo_lif_neuron params: vth=30m vrest=-65m tau=20m refract=5m alpha=0.8 Cmem_min=1p Cmem_max=5n
+
+* Analysis commands
+.control
+tran 0.1m 500m uic
+plot V(in)*100 V(out)*50 V(xneuron.membrane)*1000 title "Neuron Response" xlabel "Time (s)" ylabel "Amplitude"
+plot V(xneuron.memcap.xvar) title "Memcapacitor State"
+.endc
+
+.end

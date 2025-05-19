@@ -1,0 +1,55 @@
+
+*------------------------------------------------------------
+* test_memC_current.cir — drive memC with a current source
+*------------------------------------------------------------
+.option method=gear reltol=1e-4 abstol=1e-12 vntol=1e-6
+
+* 1 Hz, 10 µA sine‐wave current into the memC
+Iin plus 0 SIN(0 10u 1)
+
+* Tie the “minus” terminal to ground
+Rshunt minus 0 1G
+
+* Instantiate the original Biolek memC (charge‐driven)
+Xmem plus minus memC_orig \
+     Cmin=10n Cmax=10u Cinit=100n k=10meg p=1 IC=0
+
+* Give the charge‐integrator node a DC return
+Rst_q charge 0 1G
+Rst_x x      0 1G
+
+.tran 1ms 500ms uic
+
+.control
+  run
+  plot V(x)              title "Internal state x(t)"
+  plot I(in) vs V(plus)  title "I–V Hysteresis (charge‐driven)"
+.endc
+
+*------------------------------------------------------------
+* Clamped & Softened Biolek Memcapacitor Subcircuit
+*------------------------------------------------------------
+.SUBCKT memC_debug plus minus Cmin=1p Cmax=10n beta=0.2 x0=0.1 p=10
+
+* Clamp function: force x in [0,1]
+.FUNC clamp01(x)      = max(0, min(x,1))
+
+* Biolek window on clamped x
+.FUNC biolek_win(x,i) = 1 - pow(2*clamp01(x)-1, 2*p)
+
+* Soft integrator for xvar
+.nodeset v(xvar)={x0}
+Cx   xvar 0 0.01    IC={x0}
+Rx   xvar 0 1G
+
+* State evolution current
+Bx   0 xvar I = { beta * V(plus,minus)**2 * biolek_win(V(xvar), V(plus,minus)) }
+
+* Quadratic capacitance mapping
+Ec   cap 0 VALUE = { Cmin + (Cmax - Cmin) * clamp01(V(xvar))**2 }
+
+* Memcapacitive current (only uses ddt)
+Gmem plus minus VALUE = { V(cap) * ddt(V(plus,minus)) }
+
+.ends memC_debug
+

@@ -1,0 +1,81 @@
+*------------------------------------------------------------
+* FLIF neuron with enhanced memcapacitor (your model)
+*------------------------------------------------------------
+
+* Global parameters
+.param Vth      =  1.0      ; Threshold voltage [V]
+.param Iin_amp  =  1u       ; Input current amplitude [A]
+.param Rin_val  =  1Meg     ; Input series resistor [Ω]
+.param Rleak    = 10Meg     ; Leak resistor [Ω]
+.param Ireset   = 50u       ; Reset sink strength [A]
+.param Tmax     = 500ms     ; Total sim time
+.param dt       = 0.01ms    ; Base time step
+.param maxdt    = 0.05ms    ; Max time step
+
+* INPUT CURRENT DRIVER
+Iin in 0 PULSE(0 {Iin_amp} 1ms 1u 1u 100ms 200ms)
+Rin in vmem {Rin_val}
+
+* LEAK PATH
+Rleak vmem 0 {Rleak}
+
+* MEMBRANE CAPACITOR → your enhanced memcapacitor subckt
+Xmem vmem 0 memcapacitor params: Cmin=1p Cmax=10n beta=0.2 x0=0.1 p=10
+
+* THRESHOLD COMPARATOR
+*  goes high (1 V) when vmem > Vth
+Bfire fire 0 V = 'V(vmem) > {Vth} ? 1 : 0'
+
+* RESET SINK: quickly pull vmem back toward 0 when fire=1
+Greset vmem 0 VALUE = { V(fire) * Ireset }
+
+* SPIKE OUTPUT
+* a short ~10 V pulse of width ~dt whenever fire=1
+Bspike spike_out 0 V = 'V(fire) * 10'
+
+* RUN SETTINGS
+
+.option numdgt=12
+.option reltol=1e-3 abstol=1e-9
+
+* .tran <print step> <stop time> <start time> <max step> uic
+.tran 0.01ms 500ms 0 0.05ms uic
+
+
+
+.control
+  run
+  * Plot the membrane potential and spike train
+  plot V(vmem) V(spike_out)
+.endc
+
+*------------------------------------------------------------
+* Enhanced Memcapacitor Subcircuit (exactly as you provided)
+*------------------------------------------------------------
+.subckt memcapacitor plus minus params:
++ Cmin=1p        ; Minimum capacitance (F)
++ Cmax=10n       ; Maximum capacitance (F)
++ beta=0.2       ; State‐rate constant
++ x0=0.1         ; Initial state
++ p=10           ; Window shape
+
+* Internal state integrator
+.nodeset v(xvar)={x0}
+Cx       xvar 0 1
+
+* Biolek window function
+.func biolek_win(x,i) = {1 - pow(2*x-1,2*p) 
++     * ((i>0)*(x>0.98) + (i<=0)*(x<0.02)) }
+
+* State evolution
+Bx       0 xvar I = { beta * V(plus,minus)**2
++     * biolek_win(V(xvar), V(plus,minus)) }
+
+* Quadratic capacitance mapping
+Ec       cap 0 value = { Cmin + (Cmax - Cmin) * V(xvar)**2 }
+
+* Memcapacitor current
+Gmem     plus minus value = { V(cap) * ddt(V(plus,minus)) }
+
+.ends memcapacitor
+

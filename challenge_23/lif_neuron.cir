@@ -1,0 +1,55 @@
+* --- Leaky Integrate-and-Fire Neuron (Revised 2) ---
+
+.title LIF Neuron Simulation
+
+* --- Global Parameters ---
+.param VDD = 5V
+.param VSS = 0V
+.param VTH_FIRE = 1V
+.param VRESET = 0V
+* .param I_INPUT_AMP = 1uA ; Temporarily disable for direct value in PULSE
+
+* --- Components ---
+
+* Input Current Source
+* Using a PULSE source with direct values to test
+* Parameters: I(initial_value peak_value delay rise_time fall_time pulse_width period)
+Iin Vmem 0 PULSE(0 1u 10ms 1ns 1ns 20ms 40ms)
+
+* Membrane Capacitor
+Cmem Vmem 0 1nF IC=0V ; Membrane capacitance. Initial Condition V(Vmem)=0V
+
+* Leakage Resistor
+Rleak Vmem 0 100Meg ; Leakage resistance. tau = Rleak * Cmem = 100ms
+
+* Comparator (Behavioral Voltage Source)
+* Output (Vcomp_out) goes to VDD when Vmem >= VTH_FIRE, else to VSS.
+Bcomp Vcomp_out 0 V = (V(Vmem) >= {VTH_FIRE} ? {VDD} : {VSS})
+
+* Reset Switch (Voltage-Controlled Switch)
+S_reset Vmem Vreset_ref Vcomp_out 0 SW_MODEL
+
+* Switch Model:
+* Using direct values for Vt and Vh initially, derived from VDD param for robustness.
+.model SW_MODEL SW(Vt={VDD/2} Vh={VDD/10} Ron=1 Roff=100G)
+* Vt is 2.5V if VDD=5V. Vh is 0.5V if VDD=5V.
+
+* Reset Voltage Source
+Vreset_source Vreset_ref 0 DC {VRESET}
+
+* --- Analysis and Plotting ---
+.control
+  echo "Starting control block"
+  tran 0.1ms 100ms UIC
+  run
+  echo "Simulation finished, attempting plot"
+  plot V(Vmem) V(Vcomp_out) Iin
+  * For some ngspice versions or contexts, current of an independent source 'Iin'
+  * might be plotted just by its name 'Iin' or '@Iin[current]'
+  * Let's try 'Iin' as the vector name directly for its current.
+  * If 'Iin' does not work, we might need to use a dummy 0V source (Vdummy)
+  * in series with Iin and plot I(Vdummy).
+  echo "Plot command issued"
+.endc
+
+.end
