@@ -1,0 +1,64 @@
+*------------------------------------------------------------
+* FLIF Neuron (Corrected Memcapacitor + Reliable Triggering)
+*------------------------------------------------------------
+
+* PARAMETERS
+.param Rleak = 10Meg
+.param Vthresh = -1.5
+.param Vdd = 5
+
+* POWER SUPPLY
+Vdd_node Vdd 0 DC {Vdd}
+
+* INPUT CURRENT
+Iin in 0 PULSE(0 10u 1ms 1ms 1ms 5ms 200ms)
+Rin in vmem 1Meg
+
+* LEAK PATH
+Rleak vmem 0 {Rleak}
+
+* MEMCAPACITOR CONNECTION (Plus, Minus exposed)
+Xmem vmem_plus vmem memC PARAMS: Cmin=10n Cmax=10u Cinit=100n k=10meg p=2 IC=0
+
+* STABILIZATION for virtual terminal
+Rstab vmem_plus 0 1G
+
+*------------------------------------------------------------
+* SPIKE + RESET LOGIC BASED ON TRUE CAPACITOR VOLTAGE
+*------------------------------------------------------------
+
+* Comparator using V(Minus, Plus) = V(vmem, vmem_plus)
+Bcomp comp_out 0 V = 'V(vmem, vmem_plus) < Vthresh ? 1 : 0'
+
+* Reset membrane via controlled current when triggered
+Greset vmem 0 VALUE = { V(comp_out) * 1u }
+
+* Output spike signal
+Bspike spike_tail 0 V = { V(comp_out) * 2.5 }
+
+*------------------------------------------------------------
+* TRANSIENT SIMULATION
+*------------------------------------------------------------
+.tran 0.1ms 1000ms
+
+.control
+run
+plot V(vmem, vmem_plus) V(comp_out) V(spike_tail)
+.endc
+
+*------------------------------------------------------------
+* Biolek et al. 2010 Memcapacitor Subcircuit (unchanged)
+*------------------------------------------------------------
+.SUBCKT memC Plus Minus PARAMS: Cmin=10n Cmax=10u Cinit=100n k=10meg p=2 IC=0
+Emc Plus Minus VALUE = { DM(V(x)) * (V(charge) + IC * Cinit) }
+Gq 0 charge VALUE = { I(Emc) }
+Cq charge 0 1
+Rq charge 0 1G
+.param xinit = { (1/Cinit - 1/Cmax) / (1/Cmin - 1/Cmax) }
+Gx 0 x VALUE = { V(charge) * k * window(V(x), p) }
+Cx x 0 1 IC = { xinit }
+Rx x 0 1G
+.func DM(x) = { 1/Cmax + (1/Cmin - 1/Cmax) * x }
+.func window(x, p) = { 1 - (2 * x - 1)**(2 * p) }
+.ENDS memC
+

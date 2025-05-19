@@ -1,0 +1,32 @@
+* step1_cmp_reset.cir — test comparator & reset on a simple ramp
+
+.options METHOD=GEAR RELTOL=1e-4 VNTOL=1e-6 ABSTOL=1e-12 ITL4=200
+
+* Parameters
+.param Vth    = 0.5       ; spike threshold
+.param Ireset = 50e-6     ; reset current amplitude
+.param dt     = 1e-8      ; integration step
+.param Tstop  = 2u        ; run for 2 µs
+
+* 1) A 0→1 V ramp over 1 µs
+Vtest in 0 PWL(0    0    1u 1)
+
+* 2) Comparator: ctrl flips to 1 when V(in)>Vth
+Bcomp ctrl 0 V={ V(in)>Vth ? 1 : 0 }
+Rg    ctrl 0 1e12
+
+* 3) Reset‐pulse current (into node “in” via a zero‐volt source)
+Vrs  rn in DC 0
+Bres rn 0 I={ -Ireset * (V(ctrl)>0.5 ? 1 : 0) }
+
+* 4) Transient
+.ic V(in)=0 V(ctrl)=0 V(rn)=0
+.tran {dt} {Tstop} 0 {dt} uic
+
+.control
+  run
+  plot V(in) V(ctrl) I(Vrs)*1e6
+.endc
+
+.end
+

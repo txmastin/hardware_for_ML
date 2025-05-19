@@ -1,0 +1,31 @@
+******
+** ngspice-43 : Circuit level simulation program
+** Compiled with KLU Direct Linear Solver
+** The U. C. Berkeley CAD Group
+** Copyright 1985-1994, Regents of the University of California.
+** Copyright 2001-2024, The ngspice team.
+** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html
+** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html
+** Creation Date: Wed Apr 30 21:44:09 UTC 2025
+******
+
+Note: No compatibility mode selected!
+
+
+Circuit: * simplest test
+
+[?2004hngspice 26 -> 
+[?2004l[?2004hngspice 26 -> 
+[?2004l[?2004hngspice 26 -> quit
+Interrupted once . . .
+[?2004l[?2004hWarning: clearing control structures
+ngspice 26 -> 
+Interrupted again (ouch)
+[?2004l[?2004hWarning: clearing control structures
+ngspice 26 -> [Kngspice 26 -> 
+Interrupted again (ouch)
+
+Killing, since 3 interrupts have been requested
+
+
+ERROR: fatal error in ngspice, exit(1)

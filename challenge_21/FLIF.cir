@@ -1,0 +1,59 @@
+*-------------------------------------------------------------
+* FLIF neuron using Biolek memcapacitor model (fractional order)
+*-------------------------------------------------------------
+
+*** PARAMETERS ***
+.param Rleak = 10Meg
+.param Vthresh = 1.5
+
+*** INPUT STIMULUS ***
+Iin in 0 PULSE(0 10u 1ms 1ms 1ms 5ms 20ms)
+
+Rin in vmem 1Meg
+
+
+*** LEAK CONDUCTANCE ***
+Rleak vmem 0 {Rleak}
+
+*** FRACTIONAL ORDER MEMCAPACITOR ***
+* This implements power-law memory and replaces standard Cm
+Xmem vmem 0 memC PARAMS: Cmin=10n Cmax=10u Cinit=100n k=10meg p=2 IC=0
+
+*** SPIKE DETECTOR ***
+Vth vthresh 0 DC {Vthresh}
+Bspike spike_out 0 V = '10 * exp(-((V(vmem) - V(vthresh))**2) / 0.001)'
+
+*** SIMULATION CONTROL ***
+.tran 0.01ms 30ms
+.control
+run
+plot V(vmem) V(spike_out)
+.endc
+
+
+*=============================================================
+* Biolek et al. (2010) Memcapacitor Subcircuit (Modified)
+*=============================================================
+.SUBCKT memC Plus Minus PARAMS: \
++ Cmin=10n Cmax=10u Cinit=100n k=10meg p=2 IC=0
+
+* Controlled voltage source implementing v = DM(x) * q
+Emc Plus Minus VALUE = { DM(V(x)) * (V(charge) + IC*Cinit) }
+
+* Charge integrator: q = ∫ i dt
+Gq 0 charge VALUE = { I(Emc) }
+Cq charge 0 1
+Rq charge 0 1G
+
+* State equation integrator: dx/dt = k*q*window(x)
+.param xinit = { (1/Cinit - 1/Cmax) / (1/Cmin - 1/Cmax) }
+Gx 0 x VALUE = { V(charge) * k * window(V(x), p) }
+Cx x 0 1 IC={xinit}
+Rx x 0 1G
+
+* Functions
+.func DM(x) = { 1/Cmax + (1/Cmin - 1/Cmax) * x }
+.func window(x, p) = { 1 - (2*x - 1)**(2*p) }
+
+.ENDS memC
+

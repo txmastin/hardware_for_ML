@@ -1,0 +1,77 @@
+* Fractional-Order LIF Neuron with RC Ladder (ngspice)
+
+* --- Simulation Parameters ---
+.param PI         = 3.14159265359
+.param alpha      = 0.8
+.param stages     = 5
+.param C0         = 1e-9
+.param flow       = 0.1
+.param freqh      = 1e4
+.param ratio      = (freqh/flow)^(1/(stages-1))
+.param Rbase      = 1/(2*PI*flow*C0*(ratio^((1-alpha)/2)))
+.param Cbase      = C0*(ratio^((alpha-1)/2))
+
+* Rs and Cs for each ladder stage
+.param Rs0        = Rbase*(ratio^(0*(1-alpha)))
+.param Rs1        = Rbase*(ratio^(1*(1-alpha)))
+.param Rs2        = Rbase*(ratio^(2*(1-alpha)))
+.param Rs3        = Rbase*(ratio^(3*(1-alpha)))
+.param Rs4        = Rbase*(ratio^(4*(1-alpha)))
+
+.param Cs0        = Cbase*(ratio^0)
+.param Cs1        = Cbase*(ratio^1)
+.param Cs2        = Cbase*(ratio^2)
+.param Cs3        = Cbase*(ratio^3)
+.param Cs4        = Cbase*(ratio^4)
+
+* Input, leak, threshold & reset params
+.param Iin_amp    = 2e-6
+.param Rleak      = 500e3
+.param Vth        = 0.5
+.param Ireset_amp = 50e-6
+.param Roff       = 1e6
+.param Ron        = 1
+.param Tstop      = 0.01
+.param dt         = 1e-6
+
+* --- Circuit Elements ---
+Iin       0         membrane      {Iin_amp}        ; input current
+Rleak     membrane  0             {Rleak}          ; leak resistor
+
+* 5-stage RC ladder
+Rlad0     node_0    membrane      {Rs0}
+Clad0     node_0    0             {Cs0}
+Rlad1     node_1    node_0        {Rs1}
+Clad1     node_1    0             {Cs1}
+Rlad2     node_2    node_1        {Rs2}
+Clad2     node_2    0             {Cs2}
+Rlad3     node_3    node_2        {Rs3}
+Clad3     node_3    0             {Cs3}
+Rlad4     ladder    node_3        {Rs4}
+Clad4     ladder    0             {Cs4}
+
+Vth_ref   vth_ref   0             {Vth}            ; threshold reference
+
+* comparator: output 0→1 when membrane > Vth_ref
+Bcomp     control   0             V={ V(membrane)>V(vth_ref) ? 1 : 0 }
+
+* optional reset-path resistor (low R on spike, high otherwise)
+Rreset    membrane  0             r={ V(control)>0.5 ? Ron : Roff }
+
+* reset current pulse when control==1
+Breset    membrane  0             I={ -Ireset_amp * (V(control)>0.5 ? 1 : 0) }
+
+* start all caps discharged
+.ic V(membrane)=0 V(node_0)=0 V(node_1)=0 V(node_2)=0 V(node_3)=0 V(ladder)=0
+
+* run a fine-grained transient
+.tran {dt/10} {Tstop} 0 {dt/100}
+
+* automatically run and plot when loaded
+.control
+  run
+  plot V(membrane) V(control) I(Breset)*1e6
+.endc
+
+.end
+

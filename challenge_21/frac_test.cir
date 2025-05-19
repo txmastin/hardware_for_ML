@@ -1,0 +1,82 @@
+*------------------------------------------------------------
+* FLIF neuron with RC‐ladder fractionalC + DC shunts
+*   + uses `startup uic` to avoid OP‐point singularities
+*------------------------------------------------------------
+
+*––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+* GLOBAL PARAMETERS
+*––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+.param alpha    = 0.8       ; fractional order
+.param C0       = 1n        ; base capacitance
+.param stages   = 5         ; number of ladder stages
+.param Iin_amp  = 2u        ; constant input current (A)
+.param Rleak    = 500k      ; leak resistor (Ω)
+.param Vth      = 0.5       ; spike threshold (V)
+.param Ireset   = 50u       ; reset sink current (A)
+
+*––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+* INPUT + LEAK + DC SHUNT
+*––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+* drive vmem *into* the node
+Iin           0    vmem    DC {Iin_amp}
+Rleak         vmem 0       {Rleak}
+* giant shunt so vmem never floats
+Rvmem_shunt   vmem 0       1G
+
+*––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+* FRACTIONAL CAPACITOR (RC-ladder)
+*––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+Xfcap  vmem 0  fractionalC C0={C0} alpha={alpha} stages={stages}
+
+*––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+* SPIKE LOGIC
+*––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+* fire when vmem > Vth
+Bfire      fire      0  V = 'V(vmem) > {Vth} ? 1 : 0'
+* reset sink
+Greset     vmem      0  VALUE = { V(fire) * Ireset }
+* spike pulse
+Bspike     spike_out 0  V = 'V(fire) * 10'
+
+*––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+* SIMULATION CONTROLS
+*––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+.ic V(vmem)=0
+.option gmin=1e-12
+.option method=gear reltol=1e-4 abstol=1e-12 vntol=1e-6
+.tran 0.01ms 200ms startup uic
+
+.control
+  run
+  plot V(vmem) V(spike_out)
+.endc
+
+*––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+* fractionalC subcircuit (RC ladder CPE approx)
+*––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+.SUBCKT fractionalC plus minus C0=1n alpha=0.8 stages=5
+  .PARAM pi=3.141592653589793
+  .PARAM flow=0.1 freqh=10000
+  .PARAM ratio=pow(freqh/flow,1/(stages-1))
+  .PARAM R1 = 1/(2*pi*flow*C0*pow(ratio,(1-alpha)/2))
+  .PARAM C1 = C0*pow(ratio,(alpha-1)/2)
+
+  R1    plus  n1    {R1}
+  C1    n1    minus {C1}
+  R2    n1    n2    {R1*pow(ratio,1-alpha)}
+  C2    n2    minus {C1*pow(ratio,1)}
+  R3    n2    n3    {R1*pow(ratio,2*(1-alpha))}
+  C3    n3    minus {C1*pow(ratio,2)}
+  R4    n3    n4    {R1*pow(ratio,3*(1-alpha))}
+  C4    n4    minus {C1*pow(ratio,3)}
+  R5    n4    n5    {R1*pow(ratio,4*(1-alpha))}
+  C5    n5    minus {C1*pow(ratio,4)}
+
+  * DC shunts on internal nodes
+  Rsh_n1 n1    0  1G
+  Rsh_n2 n2    0  1G
+  Rsh_n3 n3    0  1G
+  Rsh_n4 n4    0  1G
+  Rsh_n5 n5    0  1G
+.ENDS fractionalC
+
