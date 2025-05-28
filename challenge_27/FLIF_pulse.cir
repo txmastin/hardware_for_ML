@@ -1,0 +1,130 @@
+* Hardware-Analog LIF Neuron with Biolek Memcapacitor Model
+* Corrected xinit handling: expression for xinit used directly in IC field of Cx.
+
+*******************************************************************************
+* Simulation Options for Robustness
+*******************************************************************************
+.OPTIONS METHOD=GEAR RELTOL=0.005 ABSTOL=1n VNTOL=1n ITL1=200 ITL4=500 GMIN=1e-15
+
+*******************************************************************************
+* Parameters (Main Circuit)
+*******************************************************************************
+.param R_LK = 10k      ; Leak resistance (Ohms)
+.param V_RESET_VAL = 0.0  ; Reset voltage value (Volts) - Vm is pulled towards this
+
+* Op-Amp Core Parameters (for the op-amp used in Schmitt trigger)
+.param VCC_OPAMP = 5.0  ; Positive rail for op-amp (Volts)
+.param VEE_OPAMP = 0.0  ; Negative rail for op-amp (Volts)
+.param OPAMP_GAIN_CORE = 50Meg ; Op-amp gain
+.param R_OPAMP_FILTER = 1    ; Resistance for VERY minimal op-amp output filter
+.param C_OPAMP_FILTER = 0.01p ; Capacitance for VERY minimal op-amp output filter
+
+* Schmitt Trigger Resistor and Reference Voltage Parameters
+* Designed for UTP = 1.0V, LTP = 0.1V
+.param R_SCHMITT_1_PARAM = 1.8k   ; Resistor from Vm to op-amp V+
+.param R_SCHMITT_2_PARAM = 10k    ; Resistor from Vcomp_out (op-amp output) to op-amp V+
+.param V_REF_SCHMITT_PARAM = 0.84746 ; Reference voltage for op-amp V-
+
+* MOSFET Parameters
+.param MOSFET_VTO = 0.4V  ; MOSFET Threshold Voltage
+.param MOSFET_KP = 2m   ; MOSFET Transconductance
+.param MOSFET_W = 20u   ; MOSFET Width
+.param MOSFET_L = 1u    ; MOSFET Length
+
+* Input current - CONSTANT DC
+.param I_CONST_IN = 200u ; Constant input current (Amps)
+
+* Simulation parameters
+.param T_STOP = 350m     ; Total simulation time
+.param T_STEP = 0.1u    ; Maximum timestep
+
+* Parameters for the Biolek Memcapacitor (passed to the instance)
+.param MC_Cmin = 10nF
+.param MC_Cmax = 10uF
+.param MC_Cinit = 100nF
+.param MC_k = 10e6 ; Assuming 'meg' means 1e6
+.param MC_p = 1
+.param MC_IC = 0 ; Initial charge offset for the memcapacitor
+
+*******************************************************************************
+* Biolek Memcapacitor Subcircuit Definition (Corrected xinit handling v2)
+*******************************************************************************
+.SUBCKT memC Plus Minus PARAMS:
++ Cmin=10nF Cmax=10uF Cinit=100nF k=10e6 p=1 IC=0
+* Input port *
+Emc Plus Minus value={DM(v(x))*(v(charge) + IC*Cinit)}
+* Charge computation. Int1 from Fig. 1 is formed by Cq and Gq *
+Gq 0 charge value={I(Emc)}
+Cq charge 0 1
+Rq charge 0 1G
+* State-space equation (4). Int2 from Fig. 1 is formed by Cx and Gx *
+* .param xinit (1/Cinit-1/Cmax)/(1/Cmin-1/Cmax) ; Intermediate xinit param commented out
+Gx 0 x value={v(charge)*k*window(v(x),p)} ; see (8)
+* Use expression for xinit directly in IC field for Cx, enclosed in {}.
+* Parameters Cinit, Cmax, Cmin are from the PARAMS list and should be accessible.
+Cx x 0 1 IC={(1/Cinit-1/Cmax)/(1/Cmin-1/Cmax)}
+Rx x 0 1G
+.func DM(x)={1/Cmax +(1/Cmin-1/Cmax)*x} ; see (7)
+.func window(x,p)={1-(2*x-1)**(2*p)} ; window function, see (9)
+.ENDS memC
+
+*******************************************************************************
+* Main Circuit Netlist
+*******************************************************************************
+
+* --- Input Current Source (Constant DC) ---
+* Iin 0 Vm DC {I_CONST_IN}
+Iin 0 Vm PULSE(0A {I_CONST_IN} 0s 1ns 1ns 10ms 50ms)
+* --- Leaky Integrator Core ---
+Rleak Vm 0 {R_LK}
+
+* --- Biolek Memcapacitor Instance ---
+* Replaces the previous fractional capacitance approximation.
+* Parameters are passed from the main .param section.
+Xmemcap Vm 0 memC Cmin={MC_Cmin} Cmax={MC_Cmax} Cinit={MC_Cinit} k={MC_k} p={MC_p} IC={MC_IC}
+
+* --- Voltage Reference for Reset Target ---
+Vreset_target_node reset_target 0 DC {V_RESET_VAL}
+
+* --- Schmitt Trigger Circuit Components ---
+V_REF_SRC V_REF_SCHMITT_NODE 0 DC {V_REF_SCHMITT_PARAM}
+R_SCHMITT_1 Vm Vplus_opamp_node {R_SCHMITT_1_PARAM}
+R_SCHMITT_2 Vcomp_out Vplus_opamp_node {R_SCHMITT_2_PARAM}
+
+* Op-Amp Core for Schmitt Trigger
+B_OPAMP_CORE Vcomp_out_internal 0 V = min({VCC_OPAMP}, max({VEE_OPAMP}, {OPAMP_GAIN_CORE}*(V(Vplus_opamp_node) - V(V_REF_SCHMITT_NODE))))
+R_OPAMP_OUT Vcomp_out_internal Vcomp_out {R_OPAMP_FILTER}
+C_OPAMP_OUT Vcomp_out 0 {C_OPAMP_FILTER} IC={VEE_OPAMP}
+
+* --- MOSFET Reset Switch ---
+Mreset Vm Vcomp_out reset_target reset_target NMOS_RESET L={MOSFET_L} W={MOSFET_W}
+.model NMOS_RESET NMOS (LEVEL=1 VTO={MOSFET_VTO} KP={MOSFET_KP} GAMMA=0.3 PHI=0.6 LAMBDA=0)
+
+* --- Initial Condition Guidance ---
+.NODESET V(Vm)={V_RESET_VAL} V(Vcomp_out)={VEE_OPAMP} V(Vplus_opamp_node)=0 V(Vcomp_out_internal)={VEE_OPAMP}
+
+*******************************************************************************
+* Analysis
+*******************************************************************************
+.TRAN {T_STEP} {T_STOP} UIC
+
+*******************************************************************************
+* Control Block for ngspice
+*******************************************************************************
+.control
+    run
+    set NOPTS
+    set noaskquit
+    set color0=white
+    set color1=black
+    set xgridwidth=2
+
+    plot V(Vm) title 'Membrane Potential (Biolek MemCap LIF)' ylimit -0.1 1.1
+    plot V(Vcomp_out) title 'Schmitt Trigger Output' ylimit -0.1 5.1
+    plot I(Iin) title 'Input Current'
+    plot V(Xmemcap.charge) title 'MemCap Internal Charge Node'
+    plot V(Xmemcap.x) title 'MemCap Internal State Node x'
+.endc
+
+.end
+
