@@ -9,34 +9,34 @@
 *******************************************************************************
 * Parameters (Main Circuit)
 *******************************************************************************
-.param R_LK = 10k      ; Leak resistance (Ohms)
-.param V_RESET_VAL = 0.0  ; Reset voltage value (Volts) - Vm is pulled towards this
+.param R_LK = 10k        ; Leak resistance (Ohms)
+.param V_RESET_VAL = 0.0 ; Reset voltage value (Volts) - Vm is pulled towards this
 
 * Op-Amp Core Parameters (for the op-amp used in Schmitt trigger)
-.param VCC_OPAMP = 5.0  ; Positive rail for op-amp (Volts)
-.param VEE_OPAMP = 0.0  ; Negative rail for op-amp (Volts)
+.param VCC_OPAMP = 5.0   ; Positive rail for op-amp (Volts)
+.param VEE_OPAMP = 0.0   ; Negative rail for op-amp (Volts)
 .param OPAMP_GAIN_CORE = 50Meg ; Op-amp gain
-.param R_OPAMP_FILTER = 1    ; Resistance for VERY minimal op-amp output filter
-.param C_OPAMP_FILTER = 0.01p ; Capacitance for VERY minimal op-amp output filter
+.param R_OPAMP_FILTER = 1      ; Resistance for VERY minimal op-amp output filter
+.param C_OPAMP_FILTER = 0.01p  ; Capacitance for VERY minimal op-amp output filter
 
 * Schmitt Trigger Resistor and Reference Voltage Parameters
 * Designed for UTP = 1.0V, LTP = 0.1V
-.param R_SCHMITT_1_PARAM = 1.8k   ; Resistor from Vm to op-amp V+
-.param R_SCHMITT_2_PARAM = 10k    ; Resistor from Vcomp_out (op-amp output) to op-amp V+
+.param R_SCHMITT_1_PARAM = 1.8k    ; Resistor from Vm to op-amp V+
+.param R_SCHMITT_2_PARAM = 10k     ; Resistor from Vcomp_out (op-amp output) to op-amp V+
 .param V_REF_SCHMITT_PARAM = 0.84746 ; Reference voltage for op-amp V-
 
 * MOSFET Parameters
 .param MOSFET_VTO = 0.4V  ; MOSFET Threshold Voltage
-.param MOSFET_KP = 2m   ; MOSFET Transconductance
-.param MOSFET_W = 20u   ; MOSFET Width
-.param MOSFET_L = 1u    ; MOSFET Length
+.param MOSFET_KP = 2m    ; MOSFET Transconductance
+.param MOSFET_W = 20u    ; MOSFET Width
+.param MOSFET_L = 1u     ; MOSFET Length
 
 * Input current - CONSTANT DC
-.param I_CONST_IN = 200u ; Constant input current (Amps)
+.param I_CONST_IN = {I_CONST_IN_PLACEHOLDER} ; Constant input current (Amps)
 
 * Simulation parameters
-.param T_STOP = 100m     ; Total simulation time
-.param T_STEP = 0.1u    ; Maximum timestep
+.param T_STOP = {T_STOP_PLACEHOLDER}     ; Total simulation time
+.param T_STEP = {T_STEP_PLACEHOLDER}   ; Maximum timestep
 
 * Parameters for the Biolek Memcapacitor (passed to the instance)
 .param MC_Cmin = 10nF
@@ -73,7 +73,9 @@ Rx x 0 1G
 *******************************************************************************
 
 * --- Input Current Source (Constant DC) ---
-Iin 0 Vm DC {I_CONST_IN}
+* Insert a 0V voltage source in series to measure current
+V_sense_Iin_P V_sense_Iin_node 0 DC 0V ; Connects to ground via 0V source
+Iin V_sense_Iin_node Vm DC {I_CONST_IN_PLACEHOLDER} ; Connect Iin to the sensor
 
 * --- Leaky Integrator Core ---
 Rleak Vm 0 {R_LK}
@@ -97,7 +99,9 @@ R_OPAMP_OUT Vcomp_out_internal Vcomp_out {R_OPAMP_FILTER}
 C_OPAMP_OUT Vcomp_out 0 {C_OPAMP_FILTER} IC={VEE_OPAMP}
 
 * --- MOSFET Reset Switch ---
-Mreset Vm Vcomp_out reset_target reset_target NMOS_RESET L={MOSFET_L} W={MOSFET_W}
+* Insert a 0V voltage source in series with the drain of Mreset to measure current
+V_sense_Mreset_D V_sense_Mreset_node Vm DC 0V ; Connects Vm to the sensor input
+Mreset V_sense_Mreset_node Vcomp_out reset_target reset_target NMOS_RESET L={MOSFET_L} W={MOSFET_W}
 .model NMOS_RESET NMOS (LEVEL=1 VTO={MOSFET_VTO} KP={MOSFET_KP} GAMMA=0.3 PHI=0.6 LAMBDA=0)
 
 * --- Initial Condition Guidance ---
@@ -106,11 +110,8 @@ Mreset Vm Vcomp_out reset_target reset_target NMOS_RESET L={MOSFET_L} W={MOSFET_
 *******************************************************************************
 * Analysis
 *******************************************************************************
-.TRAN {T_STEP} {T_STOP} UIC
+.TRAN {T_STEP_PLACEHOLDER} {T_STOP_PLACEHOLDER} UIC
 
-*******************************************************************************
-* Control Block for ngspice
-*******************************************************************************
 *******************************************************************************
 * Control Block for ngspice (Modified for Data Export)
 *******************************************************************************
@@ -118,24 +119,19 @@ Mreset Vm Vcomp_out reset_target reset_target NMOS_RESET L={MOSFET_L} W={MOSFET_
     run
 
     * Save necessary voltages and time to a raw file
-    * 'all' saves all defined nodes, but for specific analysis,
-    * it's better to explicitly list what you need.
-    * Here, we need V(Vm) and V(Vcomp_out) for spike detection.
+    * Now measures currents through the added zero-volt sources
     set wr_singlescale
-    set filetype=ascii ; Can also use binary for smaller files, but ASCII is human-readable for debugging
-    write output_data.txt V(Vm) V(Vcomp_out) time
+    set filetype=ascii
+    write output_data.txt V(Vm) V(Vcomp_out) I(V_sense_Iin_P) I(V_sense_Mreset_D) time
 
-    * You can still have your plots, but the analysis will be external
+    * Plot commands remain for interactive debugging in ngspice (will be ignored in batch mode)
     plot V(Vm) title 'Membrane Potential (Biolek MemCap LIF)' ylimit -0.1 1.1
     plot V(Vcomp_out) title 'Schmitt Trigger Output' ylimit -0.1 5.1
     plot V(Xmemcap.charge) title 'MemCap Internal Charge Node'
     plot V(Xmemcap.x) title 'MemCap Internal State Node x'
 
-    * No more complex in-line analysis in ngspice
     echo "Simulation complete. Data saved to output_data.txt for Python analysis."
 
 .endc
 
-
 .end
-

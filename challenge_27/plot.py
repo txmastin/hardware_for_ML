@@ -105,7 +105,9 @@ def analyze_spike_adaptation(filepath="output_data.txt", threshold=2.5, min_isi=
     plt.figure(figsize=(12, 8))
 
     # Plot Membrane Potential and Schmitt Trigger Output
-    plt.subplot(3, 1, 1)
+    # plt.subplot(3, 1, 1)
+    '''
+    plt.figure()
     plt.plot(time, vm, label='Vm')
     plt.plot(time, vcomp_out, label='Vcomp_out (Schmitt Trigger)')
     plt.axhline(threshold, color='red', linestyle='--', label='Spike Detection Threshold')
@@ -117,18 +119,21 @@ def analyze_spike_adaptation(filepath="output_data.txt", threshold=2.5, min_isi=
     plt.legend()
     plt.grid(True)
 
+    '''
+
+
+    plt.figure()
     # Plot ISIs over time
-    plt.subplot(3, 1, 2)
     plt.plot(isi_mid_times, isis, 'o-', markersize=4, label='ISI')
     plt.title('Inter-Spike Interval (ISI) vs. Time')
     plt.xlabel('Time (s)')
     plt.ylabel('ISI (s)')
     plt.grid(True)
 
+    plt.figure()
     # Plot Instantaneous Firing Rate (1/ISI) over time
-    plt.subplot(3, 1, 3)
     plt.plot(isi_mid_times, firing_rates, 'o-', markersize=4, color='green', label='Firing Rate (1/ISI)')
-    plt.title('Instantaneous Firing Rate vs. Time (Spike Rate Adaptation)')
+    plt.title('Instantaneous Firing Rate vs. Time')
     plt.xlabel('Time (s)')
     plt.ylabel('Firing Rate (Hz)')
     plt.grid(True)

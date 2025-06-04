@@ -35,7 +35,7 @@
 .param I_CONST_IN = 200u ; Constant input current (Amps)
 
 * Simulation parameters
-.param T_STOP = 100m     ; Total simulation time
+.param T_STOP = 500m     ; Total simulation time
 .param T_STEP = 0.1u    ; Maximum timestep
 
 * Parameters for the Biolek Memcapacitor (passed to the instance)
