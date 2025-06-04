@@ -148,7 +148,7 @@ After the neuron spikes, its membrane potential needs to be reset to prepare for
     * When `Vcomp_out` goes HIGH (indicating a spike), `Mreset` turns ON, effectively shorting `Vm` to `reset_target` (0V), rapidly discharging the memcapacitor and resetting the neuron's membrane potential.
 * **Internal Upward Spike Rate Adaptation:** While the direct `Mreset` is a simple voltage clamp reset, the "upward spike rate adaptation" (facilitation) is hypothesized to emerge from the complex, non-linear dynamics of the **memcapacitor** itself, or its interaction with the feedback loop, causing the neuron to become more excitable or fire faster under sustained activation, unlike typical downward adaptation. This is an exciting emergent property to investigate.
 
-## Performance & Dynamics
+## Performance & Benefits
 
 ### Benchmarked Speed
 
