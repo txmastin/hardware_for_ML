@@ -4,7 +4,7 @@
 
 This project presents a novel, benchtop-compatible analog circuit implementation of a Fractional Leaky Integrate-and-Fire (fLIF) neuron. Unlike most state-of-the-art neuromorphic designs that require custom silicon fabrication (ASICs), this circuit is engineered to be readily buildable and testable using discrete, commercially available (or easily obtainable) components.
 
-Our core vision is to address a critical gap in the neuromorphic landscape: the development of **custom, single-purpose embedded fractional-order neural "brains"** for real-world control and robotics applications. While the broader neuromorphic field is pushing towards large-scale, general-purpose computing platforms, we focus on highly efficient, compact, and specialized neural circuits capable of robust performance with remarkably few neurons.
+The purpose of this project is to address a critical gap in the neuromorphic landscape: the development of **custom, single-purpose embedded fractional-order neural "brains"** for real-world control and robotics applications. While the broader neuromorphic field is pushing towards large-scale, general-purpose computing platforms, we focus on highly efficient, compact, and specialized neural circuits capable of robust performance with remarkably few neurons.
 
 This design specifically serves as a crucial hardware platform for:
 1.  **Rapid Prototyping:** Accelerating the development and testing of fLIF neuron-based control algorithms in physical devices.
@@ -97,7 +97,7 @@ The neuron circuit is an analog implementation of an fLIF model, comprising seve
 
 ### 1. The Memcapacitive Core (Fractional Order & History Dependence)
 
-At the heart of the neuron is the `Xmemcap` instance, implementing the **Biolek Memcapacitor Model**. This component is critical for realizing the fractional-order dynamics and the neuron's inherent history dependence. Unlike standard capacitors, the memcapacitor's capacitance is not constant but depends on its past charge history, providing a physical embodiment of memory.
+The memcapacitive model utilized in the analog neuron is implemented with the **Biolek Memcapacitor Model**. This component is critical for realizing the fractional-order dynamics and the neuron's inherent history dependence. Unlike standard capacitors, the memcapacitor's capacitance is not constant but depends on its past charge history, providing a physical embodiment of memory.
 
 * **Netlist Instance:** `Xmemcap Vm 0 memC ...`
 * **Parameters (from .param section):**
@@ -148,7 +148,7 @@ After the neuron spikes, its membrane potential needs to be reset to prepare for
     * When `Vcomp_out` goes HIGH (indicating a spike), `Mreset` turns ON, effectively shorting `Vm` to `reset_target` (0V), rapidly discharging the memcapacitor and resetting the neuron's membrane potential.
 * **Internal Upward Spike Rate Adaptation:** While the direct `Mreset` is a simple voltage clamp reset, the "upward spike rate adaptation" (facilitation) is hypothesized to emerge from the complex, non-linear dynamics of the **memcapacitor** itself, or its interaction with the feedback loop, causing the neuron to become more excitable or fire faster under sustained activation, unlike typical downward adaptation. This is an exciting emergent property to investigate.
 
-## Performance & Unique Capabilities
+## Performance & Dynamics
 
 ### Benchmarked Speed
 
@@ -174,7 +174,7 @@ After the neuron spikes, its membrane potential needs to be reset to prepare for
 ### Addressing the Embedded ML Niche
 
 * This project directly tackles the often-overlooked area of **embedded machine learning** with custom hardware.
-* Our simulations have shown that fLIF neurons can solve complex control tasks (e.g., cart-pole, Santa Fe Trail) with **remarkably few neurons (<20)**. This demonstrates the potential for highly efficient, single-purpose analog "brains" for robotics and other edge AI applications, offering energy advantages over traditional digital processors for continuous control.
+* Simulations have shown that fLIF neurons can solve complex control tasks (e.g., cart-pole, Santa Fe Trail) with **remarkably few neurons (<20)**. This demonstrates the potential for highly efficient, single-purpose analog "brains" for robotics and other edge AI applications, offering energy advantages over traditional digital processors for continuous control.
 
 ## Simulation & Usage
 
