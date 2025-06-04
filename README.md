@@ -1,4 +1,4 @@
-# Hardware-Analog Fractional Leaky Integrate-and-Fire (fLIF) Neuron
+# Hardware Spiking Fractional Leaky Integrate-and-Fire (fLIF) Neuron
 
 ## Overview & Vision
 
