@@ -1,6 +1,6 @@
 # Hardware Spiking Fractional Leaky Integrate-and-Fire (fLIF) Neuron
 
-## Overview & Vision
+## Overview
 
 This project presents a novel, benchtop-compatible analog circuit implementation of a Fractional Leaky Integrate-and-Fire (fLIF) neuron. Unlike most state-of-the-art neuromorphic designs that require custom silicon fabrication (ASICs), this circuit is engineered to be readily buildable and testable using discrete, commercially available (or easily obtainable) components.
 
