@@ -176,7 +176,7 @@ After the neuron spikes, its membrane potential needs to be reset to prepare for
 * This project directly tackles the often-overlooked area of **embedded machine learning** with custom hardware.
 * Simulations have shown that fLIF neurons can solve complex control tasks (e.g., cart-pole, Santa Fe Trail) with **remarkably few neurons (<20)**. This demonstrates the potential for highly efficient, single-purpose analog "brains" for robotics and other edge AI applications, offering energy advantages over traditional digital processors for continuous control.
 
-## Comparative Analysis: Where Hardware-Analog fLIF Excels for Edge AI
+## Comparative Analysis
 
 For embedded robotics, controllers, and other edge AI applications, computing solutions face stringent demands: ultra-low power consumption, real-time response, small form factor, and often, low cost at volume. While various technologies compete in this space, my hardware-analog Fractional Leaky Integrate-and-Fire (fLIF) neuron offers a unique and compelling set of advantages, particularly for tasks that benefit from complex, history-dependent dynamics.
 
