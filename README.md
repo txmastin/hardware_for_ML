@@ -168,7 +168,7 @@ After the neuron spikes, its membrane potential needs to be reset to prepare for
 
 ### Enabling Novel Memcapacitor Research
 
-* Our team is developing **physically larger, novel memcapacitive devices** (~1 inch in size) that cannot currently be integrated directly onto tiny CMOS dies.
+* In general, researchers are developing **physically larger, novel memcapacitive devices** (~1 inch in size) that cannot currently be integrated directly onto CMOS dies.
 * This circuit provides the **essential benchtop interface** to experimentally test and validate the neuromorphic function of these cutting-edge, macroscopic memcapacitors in a complete neuron context, bridging the gap between material science, device physics, and neuromorphic circuit behavior.
 
 ### Addressing the Embedded ML Niche
@@ -176,7 +176,7 @@ After the neuron spikes, its membrane potential needs to be reset to prepare for
 * This project directly tackles the often-overlooked area of **embedded machine learning** with custom hardware.
 * Our simulations have shown that fLIF neurons can solve complex control tasks (e.g., cart-pole, Santa Fe Trail) with **remarkably few neurons (<20)**. This demonstrates the potential for highly efficient, single-purpose analog "brains" for robotics and other edge AI applications, offering energy advantages over traditional digital processors for continuous control.
 
-## 💻 Simulation & Usage
+## Simulation & Usage
 
 This circuit is designed to be simulated using SPICE simulators (e.g., Ngspice).
 
